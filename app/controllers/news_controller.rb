@@ -1,7 +1,6 @@
 require 'rubygems'
-require 'readability'
-require 'open-uri'
 require 'nokogiri'
+require 'open-uri'
 
 News = Struct.new(:id, :number, :title, :href, :sitestr, :points, :user, :age, :comments)
 
@@ -11,18 +10,19 @@ class NewsController < ApplicationController
 	end
 
 	def crawler
-		Rails.cache.fetch("data_page_#{params[:p]}_json", :expires_in => 5.minutes) do
-			begin
-				page = (params[:p] || '1').to_i
-				url = 'https://news.ycombinator.com/best' + (page <= 1 ? '' : '?p=' + page.to_s)
-				raw_html = Nokogiri::HTML(open(url))
-				parse_html(raw_html)
-			rescue
-				data = []
-				data.to_json
+		page = (params[:p] || '1').to_i
+		cached_key = "data_page_#{page}_json"
+		data = []
+		if Rails.cache.exist?(cached_key)
+			puts 'cached'
+			data = Rails.cache.read(cached_key)
+		else
+			puts 'loaded'
+			data = Rails.cache.fetch(cached_key, expires_in: 10.minutes) do
+				parse_html(page)
 			end
 		end
-		data = Rails.cache.read("data_page_#{params[:p]}_json")
+		
 		render json: data
 	end
 
@@ -31,9 +31,12 @@ class NewsController < ApplicationController
   end
 
 	private
-	def parse_html(raw_html)
+	def parse_html(page)
 		data = []
-		raw_html.css("table.itemlist").map do |table|
+		page = (params[:p] || '1').to_i
+		url = 'https://news.ycombinator.com/best' + (page <= 1 ? '' : '?p=' + page.to_s)
+		doc = Nokogiri::HTML(URI.open(url))
+		doc.css("table.itemlist").map do |table|
 			table.css("tr.athing").map do |row|
 				news = News.new
 				news.id = row['id']
