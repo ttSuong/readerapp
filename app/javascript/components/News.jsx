@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useState } from "react";
 import { 
 	Paper,
 	Grid,
@@ -6,10 +6,11 @@ import {
 	ButtonBase,
 	Button,
 	CircularProgress,
+	Avatar,
 	Link } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import { fetchDescription, fetchNews, fetchDetail } from "../api/news";
-import DetailNews from './DetailNews';
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import { fetchDescription, fetchNews } from "../api/news";
 const useStyles = makeStyles((theme) => ({
   root: {
     flexGrow: 1,
@@ -39,7 +40,6 @@ export default () => {
 	const [data, setData] = useState([]);
 	const [descriptions, setDescriptions] = useState([]);
 	const classes = useStyles(); 
-	const preventDefault = (event) => event.preventDefault();
 	const [page, setPage] = useState(1);
 	const [endOfData, setEndOfData] = useState(false);
 	const [loading, setLoading] = useState(false);
@@ -52,26 +52,12 @@ export default () => {
 			setPage(page + 1)
 		}
 	}
-	const handleClickOpen = (href) => {
-		Promise.resolve(fetchDetail(href)).then((res) => {
-			if(res) {
-				setExcuteDetail(true);
-				setCurrentDetail(res);
-			}
-		});
-		
-  };
-
-  const handleClose = () => {
-    setExcuteDetail(false);
-  };
-
 	const getDescriptions = async (href) => {
-		const response = await fetchDescription(href)
-		if (response && response.length) {
-			setDescriptions([...descriptions, response[0]])
+		const response = await fetchDescription(href);
+		if (response != null) {
+			setDescriptions([...descriptions, response]);
 		}
-		setQueue(queue.slice(1))
+		setQueue(queue.slice(1));
 	}
 
 	const getDataCallback = useCallback(() => {
@@ -80,10 +66,10 @@ export default () => {
 			setLoading(false);
 			if (response.length) {
 				let hrefs = response.map((r) => r.href)
-				setQueue([...queue, ...hrefs])
-				setData([...data, ...response])
+				setQueue([...queue, ...hrefs]);
+				setData([...data, ...response]);
 			} else {
-				setEndOfData(true)
+				setEndOfData(true);
 			}
 		})
 	}, [page])
@@ -108,23 +94,28 @@ export default () => {
 					<Grid container spacing={2}>
 						<Grid item>
 							<ButtonBase className={classes.image}>
-								<img className={classes.img} alt="complex" src="https://i.picsum.photos/id/0/5616/3744.jpg?hmac=3GAAioiQziMGEtLbfrdbcoenXoWAW-zlyEAMkfEdBzQ" />
+								<img className={classes.img} 
+								onError={(e)=>{e.target.onerror = null; e.target.src="https://dummyimage.com/300.png/09f/fff"}}
+								src={descriptions[index] ? descriptions[index].src : ''} />
 							</ButtonBase>
 						</Grid>
 						<Grid item xs={12} sm container>
 							<Grid item xs container direction="column" spacing={2}>
 								<Grid item xs>
 									<Typography gutterBottom variant="subtitle1">
-									<Link variant="h6" onClick={() => handleClickOpen(value.href)}>
+									<Link href={value.href} target="_blank" variant="h6">
 										{value.number}.{value.title}
 									</Link>
 									</Typography>
 									<Typography variant="body2" gutterBottom>
 										{value.sitestr}
 									</Typography>
+									{descriptions[index] != null ?
 									<Typography variant="body2" color="textSecondary">
-										{descriptions[index]}
-									</Typography>
+										{descriptions[index].desc}
+									</Typography> :
+									<CircularProgress />
+									}
 								</Grid>
 								<Grid item>
 									<Typography variant="body2" style={{ cursor: 'pointer' }}>
@@ -140,19 +131,13 @@ export default () => {
 				</Paper>
 				{!endOfData && <div className={classes.btnGroup}>
 					{index === data.length - 1 && 
-					<Button size="small" variant='outlined' onClick={loadMore} disabled={loading}>
-						View More {' '}
+					<Button size="small" variant='outlined' color="primary" onClick={loadMore} disabled={loading}>
+						View More {' '}  <ExpandMoreIcon />
 						{loading && <CircularProgress size={17} />}
 					</Button>}
 				</div>}
 			</div>
 			))}
-			{openDetail &&
-				<DetailNews 
-					open={openDetail} 
-					handleClose={handleClose}
-					currentDetail={currentDetail} />
-			}
 		</div>
 	)
 }

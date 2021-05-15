@@ -1,28 +1,31 @@
 require 'rubygems'
 require 'nokogiri'
 require 'open-uri'
+require 'readability'
+require 'uri'
+
 
 News = Struct.new(:id, :number, :title, :href, :sitestr, :points, :user, :age, :comments)
 
 class NewsController < ApplicationController
 	skip_before_action  :verify_authenticity_token
 	def index
-		
 	end
 
 	def fetch_news
 		page = (params[:p] || '1').to_i
 		cached_key = "data_page_#{page}"
-		data = []
+		news = []
+
 		if Rails.cache.exist?(cached_key)
-			data = Rails.cache.read(cached_key)
+			news = Rails.cache.read(cached_key)
 		else
-			data = Rails.cache.fetch(cached_key, expires_in: 10.minutes) do
-				news(page)
+			news = Rails.cache.fetch(cached_key, expires_in: 10.minutes) do
+				parse_news(page)
 			end
 		end
 		
-		render json: data
+		render json: news
 	end
 
 	def fetch_meta
@@ -37,7 +40,6 @@ class NewsController < ApplicationController
 		else
 			doc = Nokogiri::HTML(URI.open(params[:url]))
 			html_detail = Rails.cache.fetch(cached_key, expires_in: 10.minutes) do
-				# doc.xpath("//text()").to_s
 				doc.at('body').content
 			end
 
@@ -56,26 +58,49 @@ class NewsController < ApplicationController
 		begin
 			cached_key = "meta_#{url}"
 			page_cached_key = "page_detail_#{url}"
+
+			content = {desc: '', src: ''}
 			if Rails.cache.exist?(cached_key)
-				puts '------> cached'
-				content = Rails.cache.read(cached_key)
+				content = Rails.cache.read(cached_key) 
 			else
-				puts 'loaded<------------'
 				doc = Nokogiri::HTML(URI.open(url))
 				content = Rails.cache.fetch(cached_key, expires_in: 10.minutes) do
-					doc.search("meta[name='description'], meta[property='og:description']").map { |n|  n['content']}
+					{
+						desc: meta(doc),
+						src: image_url(url, doc)
+					}	
 				end
 				page = Rails.cache.fetch(page_cached_key, expires_in: 10.minutes) do
 					doc.at('body').to_s
 				end
 			end
 		rescue
-			conent = ''
+			content = {desc: '', src: ''}
 		end
-		content
+		return content.to_json
 	end
 
-	def news(page)
+	def meta(doc)
+		meta = doc.search("meta[name='description'], meta[property='og:description']")
+		if meta.present? && meta.first.present?
+			meta.first['content']
+		else
+			''
+		end
+	end
+	def image_url(main_url, doc)
+		image_urls = doc.search("link[rel='icon'], link[rel='shortcut icon']")
+		image_url = ''
+		if image_urls.present? && image_urls.first.present?
+			image_url = image_urls.first['href']
+		end
+		if image_url.include?('//') || image_url.include?('http')
+			return image_url
+		end
+		return URI.parse(main_url).host + image_url
+	end
+
+	def parse_news(page)
 		data = []
 		page = (params[:p] || '1').to_i
 		url = 'https://news.ycombinator.com/best' + (page <= 1 ? '' : '?p=' + page.to_s)
@@ -100,6 +125,6 @@ class NewsController < ApplicationController
 		rescue
 			data = []
 		end
-		data.to_json
+		return data.to_json
 	end
 end
