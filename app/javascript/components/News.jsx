@@ -8,7 +8,8 @@ import {
 	CircularProgress,
 	Link } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import { fetchNews } from "../api/news";
+import { fetchDescription, fetchNews, fetchDetail } from "../api/news";
+import DetailNews from './DetailNews';
 const useStyles = makeStyles((theme) => ({
   root: {
     flexGrow: 1,
@@ -36,16 +37,41 @@ const useStyles = makeStyles((theme) => ({
 export default () => {
 
 	const [data, setData] = useState([]);
+	const [descriptions, setDescriptions] = useState([]);
 	const classes = useStyles(); 
 	const preventDefault = (event) => event.preventDefault();
-	const [page, setPage] = useState(1)
+	const [page, setPage] = useState(1);
 	const [endOfData, setEndOfData] = useState(false);
-	const [loading, setLoading] = useState(false)
+	const [loading, setLoading] = useState(false);
+	const [queue, setQueue] = useState([]);
+	const [openDetail, setExcuteDetail] = useState(false);
+	const [currentDetail, setCurrentDetail] = useState('');
 
 	const loadMore = () => {
 		if (!endOfData) {
 			setPage(page + 1)
 		}
+	}
+	const handleClickOpen = (href) => {
+		Promise.resolve(fetchDetail(href)).then((res) => {
+			if(res) {
+				setExcuteDetail(true);
+				setCurrentDetail(res);
+			}
+		});
+		
+  };
+
+  const handleClose = () => {
+    setExcuteDetail(false);
+  };
+
+	const getDescriptions = async (href) => {
+		const response = await fetchDescription(href)
+		if (response && response.length) {
+			setDescriptions([...descriptions, response[0]])
+		}
+		setQueue(queue.slice(1))
 	}
 
 	const getDataCallback = useCallback(() => {
@@ -53,12 +79,22 @@ export default () => {
 		Promise.resolve(fetchNews(page)).then((response) => {
 			setLoading(false);
 			if (response.length) {
+				let hrefs = response.map((r) => r.href)
+				setQueue([...queue, ...hrefs])
 				setData([...data, ...response])
 			} else {
 				setEndOfData(true)
 			}
 		})
 	}, [page])
+
+	useEffect(() => {
+		if (!queue.length) {
+			return;
+		}
+
+		getDescriptions(queue[0])
+	}, [queue])
 
 	useEffect(() => {
 		getDataCallback()
@@ -68,7 +104,6 @@ export default () => {
 		<div className={classes.root}>
 			{data.map((value, index) => (
 				<div key={index}>
-					<div>{value.number}</div>
 				<Paper className={classes.paper}>
 					<Grid container spacing={2}>
 						<Grid item>
@@ -80,15 +115,15 @@ export default () => {
 							<Grid item xs container direction="column" spacing={2}>
 								<Grid item xs>
 									<Typography gutterBottom variant="subtitle1">
-									<Link href={value.href} onClick={preventDefault} variant="h6">
-										{value.title}
+									<Link variant="h6" onClick={() => handleClickOpen(value.href)}>
+										{value.number}.{value.title}
 									</Link>
 									</Typography>
 									<Typography variant="body2" gutterBottom>
 										{value.sitestr}
 									</Typography>
 									<Typography variant="body2" color="textSecondary">
-										
+										{descriptions[index]}
 									</Typography>
 								</Grid>
 								<Grid item>
@@ -112,6 +147,12 @@ export default () => {
 				</div>}
 			</div>
 			))}
+			{openDetail &&
+				<DetailNews 
+					open={openDetail} 
+					handleClose={handleClose}
+					currentDetail={currentDetail} />
+			}
 		</div>
 	)
 }
