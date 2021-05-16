@@ -50,7 +50,7 @@ export default () => {
 
 	const loadMore = () => {
 		if (!endOfData) {
-			setPage(page + 1)
+			setPage(page + 1);
 		}
 	}
 
