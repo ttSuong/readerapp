@@ -10,7 +10,8 @@ import {
 	Link } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import { fetchDescription, fetchNews } from "../api/news";
+import { fetchDescription, fetchNews, fetchDetail } from "../api/news";
+import DetailNews from "./DetailNews";
 const useStyles = makeStyles((theme) => ({
   root: {
     flexGrow: 1,
@@ -52,6 +53,20 @@ export default () => {
 			setPage(page + 1)
 		}
 	}
+
+	const handleOpenDetail = (href) => {
+		Promise.resolve(fetchDetail(href)).then((response) => {
+			if (response) {
+				setCurrentDetail(response);
+				setExcuteDetail(true);
+			} 
+		})
+	}
+
+	const handleClose = () => {
+		setExcuteDetail(false);
+	}
+	
 	const getDescriptions = async (href) => {
 		const response = await fetchDescription(href);
 		if (response != null) {
@@ -95,7 +110,7 @@ export default () => {
 						<Grid item>
 							<ButtonBase className={classes.image}>
 								<img className={classes.img} 
-								onError={(e)=>{e.target.onerror = null; e.target.src="https://dummyimage.com/300.png/09f/fff"}}
+								onError={(e)=>{e.target.onerror = null; e.target.src="https://picsum.photos/seed/picsum/200/300"}}
 								src={descriptions[index] ? descriptions[index].src : ''} />
 							</ButtonBase>
 						</Grid>
@@ -103,7 +118,7 @@ export default () => {
 							<Grid item xs container direction="column" spacing={2}>
 								<Grid item xs>
 									<Typography gutterBottom variant="subtitle1">
-									<Link href={value.href} target="_blank" variant="h6">
+									<Link component="button" onClick={() => handleOpenDetail(value.href)} target="_blank" variant="h6">
 										{value.number}.{value.title}
 									</Link>
 									</Typography>
@@ -138,6 +153,13 @@ export default () => {
 				</div>}
 			</div>
 			))}
+			{openDetail &&
+					<DetailNews 
+					open={openDetail} 
+					content={currentDetail}
+					handleClose={handleClose}
+					/>
+				}
 		</div>
 	)
 }
